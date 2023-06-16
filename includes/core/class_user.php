@@ -56,15 +56,18 @@ class User {
         $items = [];
         // where
         $where = [];
-        if ($search) $where[] = "number LIKE '%".$search."%'";
+        if ($search) $where[] = "first_name LIKE '%".$search."%' OR email LIKE '%".$search."%' OR phone LIKE '%".$search."%'";
         $where = $where ? "WHERE ".implode(" AND ", $where) : "";
         // info
-        $q = DB::query("SELECT user_id, plot_id, first_name, last_name, email, phone
+        $q = DB::query("SELECT user_id, plot_id, first_name, last_name, email, phone, last_login
             FROM users ".$where." ORDER BY user_id LIMIT ".$offset.", ".$limit.";") or die (DB::error());
         while ($row = DB::fetch_row($q)) {
             $items[] = [
                 'id' => (int) $row['user_id'],
-                'plot' => Plot::plot_number($row['plot_id']),
+//                'plot' => Plot::plot_number($row['plot_id']),
+                'plot' => $row['plot_id'],
+                'last_login' =>date("Y-m-d H:i:s", (int) $row['last_login']),
+//                'last_login' =>$row['last_login'],
 
                 'first_name' => $row['first_name'],
                 'last_name' => $row['last_name'],
@@ -80,10 +83,110 @@ class User {
         $url = 'users';
         if ($search) $url .= '?search='.$search.'&';
         paginator($count, $offset, $limit, $url, $paginator);
-//        print_r($items[0]['plot']);
+
+//        print_r($paginator);
 //        exit();
         // output
         return ['items' => $items, 'paginator' => $paginator];
+    }
+
+    public static function user_edit_window($d = []) {
+        $user_id = isset($d['user_id']) && is_numeric($d['user_id']) ? $d['user_id'] : 0;
+        HTML::assign('user', User::user_dates($user_id));
+        return ['html' => HTML::fetch('./partials/user_edit.html')];
+    }
+
+    public static function users_fetch($d = []) {
+        $info = User::users_list($d);
+        HTML::assign('users', $info['items']);
+        return ['html' => HTML::fetch('./partials/users_table.html'), 'paginator' => $info['paginator']];
+    }
+
+    public static function user_edit_update($d = []) {
+        // vars
+        $user_id = isset($d['user_id']) && is_numeric($d['user_id']) ? $d['user_id'] : 0;
+        $first_name = isset($d['first_name']) ? $d['first_name'] : '';
+        $last_name = isset($d['last_name']) ? $d['last_name'] : '';
+
+        $email = isset($d['email']) ? strtolower( $d['email']) : '';
+        $phone = isset($d['phone']) ? preg_replace('~\D+~', '', $d['phone']) : 0;
+        $offset = isset($d['offset']) ? preg_replace('~\D+~', '', $d['offset']) : 0;
+//        $plots = isset($d['plots']) ? explode(',',$d['plots']) : 0;
+        $plot = isset($d['plot']) ? $d['plot'] : 0;
+
+//        print_r($d);
+//        exit();
+
+        // update
+        if ($user_id) {
+//            foreach ($plots as $plot=>$key) {
+//                DB::query("INSERT INTO user_plots (
+//                user_id,
+//                plot_id
+//            ) VALUES ( '".$user_id."',
+//                '".$plot[$key]."')");
+//            }
+            $set = [];
+            $set[] = "first_name='".$first_name."'";
+            $set[] = "last_name='".$last_name."'";
+            $set[] = "plot_id='".$plot."'";
+
+            $set[] = "email='".$email."'";
+            $set[] = "phone='".$phone."'";
+            $set[] = "updated='".Session::$ts."'";
+            $set = implode(", ", $set);
+            DB::query("UPDATE users SET ".$set." WHERE user_id='".$user_id."' LIMIT 1;") or die (DB::error());
+        } else {
+            DB::query("INSERT INTO users (
+                first_name,
+                last_name,
+                email,
+                phone,               
+                plot_id,               
+                updated
+            ) VALUES (
+                '".$first_name."',
+                '".$last_name."',
+                '".$email."',
+                '".$phone."',               
+                '".$plot."',               
+                '".Session::$ts."'
+            );") or die (DB::error());
+        }
+        // output
+        return User::users_fetch(['offset' => $offset]);
+    }
+
+    public static function user_dates($user_id) {
+        $q = DB::query("SELECT user_id, plot_id, first_name, last_name, email, phone, last_login, plot_id
+            FROM users WHERE user_id='".$user_id."' LIMIT 1;") or die (DB::error());
+        if ($row = DB::fetch_row($q)) {
+//            $plots = DB::fetch_row("SELECT number
+//            FROM plots WHERE plot_id='".$row['plot_id']."';");
+//            foreach ($plots as $plot) {
+//                if($plots->count() == 1) {
+//                    $res = $plot['number'];
+//                } else $res = $plot['number'].',';
+//            }
+            return [
+                'id' => (int) $row['user_id'],
+                'first_name' => $row['first_name'],
+                'last_name' => $row['last_name'],
+                'email' => $row['email'],
+                'phone' => $row['phone'],
+                'plot' =>$row['plot_id'],
+            ];
+        } else {
+            return [
+                'id' => 0,
+                'first_name' => '',
+                'last_name' => '',
+                'email' => '',
+                'phone' => 0,
+                'plot' => 0,
+
+            ];
+        }
     }
 
 }

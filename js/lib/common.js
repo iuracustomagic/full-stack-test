@@ -97,6 +97,7 @@ function request(data, callback) {
     xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
     xhr.send(request_serialize(data));
     xhr.onreadystatechange = () => {
+        console.log(xhr.responseText);
         if (xhr.readyState !== 4) return;
         if (xhr.status === 200) callback(JSON.parse(xhr.responseText));
         xhr = null;
